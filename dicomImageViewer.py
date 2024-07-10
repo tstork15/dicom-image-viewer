@@ -9,6 +9,9 @@ import numpy as np
 slices_array = None
 current_slice_index = 0
 
+# Add the following global variable
+scrollbar = None
+
 # Define preset values for CT and NM
 preset_values = {
     'Soft Tissue': {'window_center': 50, 'window_width': 350},
@@ -38,6 +41,10 @@ def select_file_and_display_data():
 
         # Reset the current slice index
         current_slice_index = 0
+
+        # Configure scrollbar
+        scrollbar.config(from_=0, to=slices_array.shape[2] - 1)
+        scrollbar.set(0)
 
         # Show initial slice
         show_slice(current_slice_index)
@@ -158,9 +165,28 @@ def update_slice_on_scroll(event):
     global current_slice_index, slices_array
     # Update the current slice index based on scroll direction
     if event.delta > 0:
-        current_slice_index = (current_slice_index - 1) % slices_array.shape[2]
+        if current_slice_index > 0:
+            current_slice_index -= 1
     else:
-        current_slice_index = (current_slice_index + 1) % slices_array.shape[2]
+        if current_slice_index < slices_array.shape[2] - 1:
+            current_slice_index += 1
+
+    # Show the updated slice
+    show_slice(current_slice_index)
+
+    # Update the scrollbar to reflect the current slice
+    scrollbar.set(current_slice_index)
+
+def update_slice_on_scrollbar(value):
+    """
+    Update the slice displayed based on scrollbar position.
+
+    Inputs:
+    value: int
+    """
+    global current_slice_index, slices_array
+    # Update the current slice index based on scrollbar position
+    current_slice_index = int(value)
 
     # Show the updated slice
     show_slice(current_slice_index)
@@ -218,15 +244,23 @@ if __name__ == "__main__":
     modality_menu = tk.OptionMenu(frame, modality_var, 'Soft Tissue', 'Bone', 'Lung', 'Brain','NM', command=lambda _: update_sliders_based_on_modality())
     modality_menu.pack(side=tk.LEFT, padx=5, pady=5)
 
+    # Create a frame to hold the canvas and scrollbar side by side
+    image_frame = tk.Frame(root)
+    image_frame.pack(fill=tk.BOTH, expand=1)
+
     # Create a canvas to display the image
-    canvas = tk.Canvas(root)
-    canvas.pack(fill=tk.BOTH, expand=1)
+    canvas = tk.Canvas(image_frame)
+    canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+
+    # Create a vertical scrollbar linked to the canvas
+    scrollbar = tk.Scale(image_frame, from_=0, to=1, orient=tk.VERTICAL, command=update_slice_on_scrollbar)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
     # Create sliders for window center and window width
     window_center_slider = tk.Scale(root, from_=-1000, to=2000, orient=tk.HORIZONTAL, label='Window Center', command=on_slider_change)
     window_center_slider.pack(fill=tk.X, padx=10, pady=5)
 
-    window_width_slider = tk.Scale(root, from_=-1000, to=2000, orient=tk.HORIZONTAL, label='Window Width', command=on_slider_change)
+    window_width_slider = tk.Scale(root, from_=1, to=2000, orient=tk.HORIZONTAL, label='Window Width', command=on_slider_change)
     window_width_slider.pack(fill=tk.X, padx=10, pady=5)
 
     # Set initial values for the sliders based on default modality
