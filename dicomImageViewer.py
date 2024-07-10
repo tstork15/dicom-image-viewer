@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import filedialog
 import os
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageOps
 import pydicom
 import numpy as np
 
@@ -113,11 +113,23 @@ def show_slice(index):
     # Convert to grayscale (L mode)
     image = image.convert('L')
 
+    # Resize the image to 512x512
+    image = ImageOps.fit(image, (512, 512), Image.Resampling.LANCZOS)
+
     # Convert the PIL image to a PhotoImage object for Tkinter
     tk_image = ImageTk.PhotoImage(image)
 
-    # Create an image item in the canvas
-    canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
+    # Clear the canvas
+    canvas.delete("all")
+
+    # Calculate the center position
+    canvas_width = canvas.winfo_width()
+    canvas_height = canvas.winfo_height()
+    x_center = (canvas_width - 512) / 2
+    y_center = (canvas_height - 512) / 2
+
+    # Create an image item in the canvas at the center position
+    canvas.create_image(x_center, y_center, anchor=tk.NW, image=tk_image)
 
     # Keep a reference to the image to prevent it from being garbage collected
     canvas.image = tk_image
