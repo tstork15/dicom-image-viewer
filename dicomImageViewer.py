@@ -21,7 +21,6 @@ def select_file_and_display_data():
     file_path = filedialog.askopenfilename(title="Select DICOM file", filetypes=[("DICOM files", "*.dcm")])
 
     if file_path: # If a file is selected
-
         # Get the directory of the selected file
         folder_path = os.path.dirname(file_path)
 
@@ -52,17 +51,31 @@ def get_image_from_dicom(folder_path):
     # Get all DICOM files in the directory with full paths
     dicom_files = [os.path.join(folder_path, file) for file in os.listdir(folder_path) if file.endswith(".dcm")]
 
-    # Read the DICOM files and sort them by Instance Number
     dicom_slices = []
-    for file in dicom_files:
-        dicom_slice = pydicom.dcmread(file)
-        dicom_slices.append(dicom_slice)
 
-    # Sort slices by Instance Number or Slice Location
-    dicom_slices.sort(key=lambda x: int(x.InstanceNumber))
+    if len(dicom_files) > 1:
+        # If there are multiple DICOM files, assume they are slices of 1 image (like CT or PT)
+        # Read the DICOM files and sort them by Instance Number
+        for file in dicom_files:
+            dicom_slice = pydicom.dcmread(file)
+            dicom_slices.append(dicom_slice)
 
-    # Extract pixel data and stack into a 3D numpy array
-    slices_array = np.stack([s.pixel_array for s in dicom_slices], axis=-1)
+        # Sort slices by Instance Number or Slice Location
+        dicom_slices.sort(key=lambda x: int(x.InstanceNumber))
+
+        # Extract pixel data and stack into a 3D numpy array
+        slices_array = np.stack([s.pixel_array for s in dicom_slices], axis=-1)
+
+    elif len(dicom_files) == 1:
+        # If there's only one DICOM file, assume it's an entire image (like an NM)
+        # Read the single DICOM file
+        dicom_slices = pydicom.dcmread(dicom_files[0])
+
+        # Extract the pixel array from the DICOM file
+        slices_array = dicom_slices.pixel_array
+
+        # Swap axes to match the expected (x, y, z) format
+        slices_array = np.swapaxes(slices_array, 0, 2)
 
     return slices_array
 
@@ -123,7 +136,7 @@ if __name__ == "__main__":
     select_file_button.pack(side=tk.LEFT, padx=5, pady=5)  # Pack the button with padding
 
     # Create a canvas to display the image
-    canvas = tk.Canvas(root, bg='gray')
+    canvas = tk.Canvas(root)
     canvas.pack(fill=tk.BOTH, expand=1)
 
     # Bind the mouse scroll event to update the slice
