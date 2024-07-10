@@ -63,8 +63,19 @@ def get_image_from_dicom(folder_path):
         # Sort slices by Instance Number or Slice Location
         dicom_slices.sort(key=lambda x: int(x.InstanceNumber))
 
-        # Extract pixel data and stack into a 3D numpy array
-        slices_array = np.stack([s.pixel_array for s in dicom_slices], axis=-1)
+        # Extract pixel data and apply the rescale slope/intercept if present, then stack into a 3D numpy array
+        pixel_arrays = []
+        for s in dicom_slices:
+            # Extract pixel array
+            pixel_array = s.pixel_array
+            # Apply the rescale slope and intercept if present
+            if 'RescaleSlope' in s and 'RescaleIntercept' in s:
+                slope = s.RescaleSlope
+                intercept = s.RescaleIntercept
+                pixel_array = pixel_array * slope + intercept
+            pixel_arrays.append(pixel_array)
+
+        slices_array = np.stack(pixel_arrays, axis=-1)
 
     elif len(dicom_files) == 1:
         # If there's only one DICOM file, assume it's an entire image (like an NM)
@@ -74,8 +85,14 @@ def get_image_from_dicom(folder_path):
         # Extract the pixel array from the DICOM file
         slices_array = dicom_slices.pixel_array
 
+        # Apply rescale slope and intercept if present
+        if 'RescaleSlope' in dicom_slices and 'RescaleIntercept' in dicom_slices:
+            slope = dicom_slices.RescaleSlope
+            intercept = dicom_slices.RescaleIntercept
+            slices_array = slices_array * slope + intercept
+
         # Swap axes to match the expected (x, y, z) format
-        slices_array = np.swapaxes(slices_array, 0, 2)
+        slices_array = np.transpose(slices_array, (1, 2, 0))
 
     return slices_array
 
