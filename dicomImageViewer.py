@@ -5,21 +5,22 @@ from PIL import Image, ImageTk, ImageOps
 import pydicom
 import numpy as np
 
-# Initialize global variables to store the slices and current index
+# Initialize global variables to store the slices, current index, scrollbar, and modality
 slices_array = None
 current_slice_index = 0
-
-# Add the following global variable
 scrollbar = None
+modality = None
 
-# Define preset values for CT and NM
+# Define preset values for CT and Functional
 preset_values = {
     'Soft Tissue': {'window_center': 50, 'window_width': 350},
     'Bone': {'window_center': 500, 'window_width': 2000},
     'Lung': {'window_center': -600, 'window_width': 1600},
     'Brain': {'window_center': 30, 'window_width': 70},
-    'NM': {'window_center': 20, 'window_width': 80} # these values need to update based on the image, not be preset
+    'Auto': {'window_center': 0, 'window_width': 1}  # these values need to update based on the image, not be preset
 }
+preset_names = ['Soft Tissue', 'Bone', 'Lung', 'Brain', 'Auto']
+
 
 def select_file_and_display_data():
     """
@@ -28,11 +29,14 @@ def select_file_and_display_data():
     Inputs: None
     Outputs: None
     """
-    global slices_array, current_slice_index
+    global slices_array, current_slice_index, modality
     # Open a file dialog to select a DICOM file and get its path
     file_path = filedialog.askopenfilename(title="Select DICOM file", filetypes=[("DICOM files", "*.dcm")])
 
-    if file_path: # If a file is selected
+    # Read the modality from the selected DICOM file
+    modality = pydicom.read_file(file_path).Modality
+
+    if file_path:  # If a file is selected
         # Get the directory of the selected file
         folder_path = os.path.dirname(file_path)
 
@@ -49,10 +53,14 @@ def select_file_and_display_data():
         # Show initial slice
         show_slice(current_slice_index)
 
+        # Update window width and center drop down based on modality
+        update_default_dropdown(modality)
+
     else:
         # If no DICOM files are found in the directory
         # TODO: Insert a message indicating no DICOM files were found
         print("TODO: add error message stating no files are found in the directory")
+
 
 def get_image_from_dicom(folder_path):
     """
@@ -112,6 +120,7 @@ def get_image_from_dicom(folder_path):
 
     return slices_array
 
+
 def show_slice(index):
     """
     Show the slice at the given index on the canvas.
@@ -155,6 +164,7 @@ def show_slice(index):
     # Keep a reference to the image to prevent it from being garbage collected
     canvas.image = tk_image
 
+
 def update_slice_on_scroll(event):
     """
     Update the slice displayed based on scroll direction.
@@ -177,6 +187,7 @@ def update_slice_on_scroll(event):
     # Update the scrollbar to reflect the current slice
     scrollbar.set(current_slice_index)
 
+
 def update_slice_on_scrollbar(value):
     """
     Update the slice displayed based on scrollbar position.
@@ -190,6 +201,7 @@ def update_slice_on_scrollbar(value):
 
     # Show the updated slice
     show_slice(current_slice_index)
+
 
 def apply_window_level(pixel_array, window_center, window_width):
     """
@@ -213,14 +225,43 @@ def apply_window_level(pixel_array, window_center, window_width):
 
     return pixel_array
 
-def update_sliders_based_on_modality():
+
+def update_sliders_based_on_dropdown():
     """
-    Update the window center and window width sliders based on the selected modality.
+    Update the window center and window width sliders based on the selected dropdown.
     """
-    selected_modality = modality_var.get()
-    if selected_modality in preset_values:
-        window_center_slider.set(preset_values[selected_modality]['window_center'])
-        window_width_slider.set(preset_values[selected_modality]['window_width'])
+    selected_dropdown = dropdown_var.get()
+    if selected_dropdown in preset_values:
+        # Set the window center and width sliders to the preset values
+        window_center_slider.set(preset_values[selected_dropdown]['window_center'])
+        window_width_slider.set(preset_values[selected_dropdown]['window_width'])
+
+
+def update_default_dropdown(modality):
+    """
+    Get the default dropdown variable.
+    Inputs:
+    modality: str
+
+    Output: none
+    """
+    if modality in 'CT':
+        new_dropdown = 'Soft Tissue'
+    else:
+        new_dropdown = 'Auto'
+        max_pixel_value = slices_array.max()
+        new_center = max_pixel_value / 2
+        new_width = max_pixel_value
+        preset_values['Auto'] = {'window_center': new_center, 'window_width': new_width}
+
+        print(max_pixel_value)
+
+    # Update the dropdown menu
+    dropdown_var.set(new_dropdown)
+
+    # Update the image based on the new selection
+    update_sliders_based_on_dropdown()
+
 
 def on_slider_change(event=None):
     """
@@ -229,6 +270,7 @@ def on_slider_change(event=None):
     if slices_array is not None:
         show_slice(current_slice_index)
 
+
 if __name__ == "__main__":
     root = tk.Tk()  # Create the main window
     root.title("DICOM Image Viewer")  # Set the window title
@@ -236,13 +278,13 @@ if __name__ == "__main__":
     frame = tk.Frame(root)  # Create a frame to hold the buttons and dropdown
     frame.pack(padx=10, pady=10)  # Add padding around the frame
 
-    select_file_button = tk.Button(frame, text="Select DICOM File", command=select_file_and_display_data)  # Button to select a DICOM file
+    select_file_button = tk.Button(frame, text="Select DICOM File", command=select_file_and_display_data)   # Button to select a DICOM file
     select_file_button.pack(side=tk.LEFT, padx=5, pady=5)  # Pack the button with padding
 
-    # Create an option menu for modality selection
-    modality_var = tk.StringVar(value='Soft Tissue')  # Default value
-    modality_menu = tk.OptionMenu(frame, modality_var, 'Soft Tissue', 'Bone', 'Lung', 'Brain','NM', command=lambda _: update_sliders_based_on_modality())
-    modality_menu.pack(side=tk.LEFT, padx=5, pady=5)
+    # Create an option menu for dropdown selection
+    dropdown_var = tk.StringVar(value='Auto')  # Default value
+    preset_menu = tk.OptionMenu(frame, dropdown_var, *preset_names, command=lambda _: update_sliders_based_on_dropdown())
+    preset_menu.pack(side=tk.LEFT, padx=5, pady=5)
 
     # Create a frame to hold the canvas and scrollbar side by side
     image_frame = tk.Frame(root)
@@ -263,8 +305,8 @@ if __name__ == "__main__":
     window_width_slider = tk.Scale(root, from_=1, to=2000, orient=tk.HORIZONTAL, label='Window Width', command=on_slider_change)
     window_width_slider.pack(fill=tk.X, padx=10, pady=5)
 
-    # Set initial values for the sliders based on default modality
-    update_sliders_based_on_modality()
+    # Set initial values for the sliders based on default dropdown
+    update_sliders_based_on_dropdown()
 
     # Bind the mouse scroll event to update the slice
     root.bind("<MouseWheel>", update_slice_on_scroll)
