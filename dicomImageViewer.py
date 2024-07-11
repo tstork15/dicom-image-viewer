@@ -16,10 +16,10 @@ preset_values = {
     'Soft Tissue': {'window_center': 50, 'window_width': 350},
     'Bone': {'window_center': 500, 'window_width': 2000},
     'Lung': {'window_center': -600, 'window_width': 1600},
-    'Brain': {'window_center': 30, 'window_width': 70},
-    'Auto': {'window_center': 0, 'window_width': 1}  # these values need to update based on the image, not be preset
+    'Auto': {'window_center': 0, 'window_width': 1},  # these values need to update based on the image, not be preset
+    'DICOM': {'window_center': 0, 'window_width': 1}  # these values need to update based on the image, not be preset
 }
-preset_names = ['Soft Tissue', 'Bone', 'Lung', 'Brain', 'Auto']
+preset_names = ['Soft Tissue', 'Bone', 'Lung', 'Auto', 'DICOM']
 
 
 def select_file_and_display_data():
@@ -34,7 +34,10 @@ def select_file_and_display_data():
     file_path = filedialog.askopenfilename(title="Select DICOM file", filetypes=[("DICOM files", "*.dcm")])
 
     # Read the modality from the selected DICOM file
-    modality = pydicom.read_file(file_path).Modality
+    ds = pydicom.read_file(file_path)
+    modality = ds.Modality
+    window_width = ds.WindowWidth
+    window_center = ds.WindowCenter
 
     if file_path:  # If a file is selected
         # Get the directory of the selected file
@@ -54,7 +57,7 @@ def select_file_and_display_data():
         show_slice(current_slice_index)
 
         # Update window width and center drop down based on modality
-        update_default_dropdown(modality)
+        update_default_dropdown(modality, window_width, window_center)
 
     else:
         # If no DICOM files are found in the directory
@@ -213,7 +216,7 @@ def apply_window_level(pixel_array, window_center, window_width):
     window_width: int
 
     Outputs:
-    adjusted_pixel_array: np.array
+    pixel_array: np.array
     """
     # Calculate minimum and maximum pixel values for the given window
     min_pixel_value = window_center - window_width / 2
@@ -237,24 +240,41 @@ def update_sliders_based_on_dropdown():
         window_width_slider.set(preset_values[selected_dropdown]['window_width'])
 
 
-def update_default_dropdown(modality):
+def update_default_dropdown(modality, dicom_window_width, dicom_window_center):
     """
-    Get the default dropdown variable.
-    Inputs:
-    modality: str
+    Automatically set the default dropdown for window width and center based on the DICOM modality.
 
-    Output: none
+    Inputs:
+    modality: str - the modality of the DICOM file (e.g., 'CT', 'NM')
+
+    Outputs: None
     """
+    max_pixel_value = slices_array.max()
+
+    # update the preset values for 'Auto'
+    auto_width = max_pixel_value * 0.6
+    auto_center = auto_width / 2
+    preset_values['Auto'] = {'window_center': auto_center, 'window_width': auto_width}
+
+    # update the preset values for 'DICOM'
+    if dicom_window_width and dicom_window_center:
+        preset_values['DICOM'] = {'window_center': dicom_window_center, 'window_width': dicom_window_width}
+
     if modality in 'CT':
         new_dropdown = 'Soft Tissue'
-    else:
-        new_dropdown = 'Auto'
-        max_pixel_value = slices_array.max()
-        new_center = max_pixel_value / 2
-        new_width = max_pixel_value
-        preset_values['Auto'] = {'window_center': new_center, 'window_width': new_width}
 
-        print(max_pixel_value)
+        # Update slider ranges based on pixel data
+        window_center_slider.config(from_=-1024, to=max_pixel_value)
+        window_width_slider.config(from_=1, to=max_pixel_value)
+    else:
+        if dicom_window_width and dicom_window_center:
+            new_dropdown = 'DICOM'
+        else:
+            new_dropdown = 'Auto'
+
+        # Update slider ranges based on pixel data
+        window_center_slider.config(from_=0, to=max_pixel_value)
+        window_width_slider.config(from_=1, to=max_pixel_value)
 
     # Update the dropdown menu
     dropdown_var.set(new_dropdown)
@@ -299,10 +319,10 @@ if __name__ == "__main__":
     scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
     # Create sliders for window center and window width
-    window_center_slider = tk.Scale(root, from_=-1000, to=2000, orient=tk.HORIZONTAL, label='Window Center', command=on_slider_change)
+    window_center_slider = tk.Scale(root, from_=-1024, to=3071, orient=tk.HORIZONTAL, label='Window Center', command=on_slider_change)
     window_center_slider.pack(fill=tk.X, padx=10, pady=5)
 
-    window_width_slider = tk.Scale(root, from_=1, to=2000, orient=tk.HORIZONTAL, label='Window Width', command=on_slider_change)
+    window_width_slider = tk.Scale(root, from_=1, to=4096, orient=tk.HORIZONTAL, label='Window Width', command=on_slider_change)
     window_width_slider.pack(fill=tk.X, padx=10, pady=5)
 
     # Set initial values for the sliders based on default dropdown
