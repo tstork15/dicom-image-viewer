@@ -1,4 +1,4 @@
-# DICOM Tag Viewer
+# DICOM Image Viewer
 ![dicom-image-viewer](https://github.com/user-attachments/assets/042733c0-f3bf-4613-8442-be63480e0980)
 
 
