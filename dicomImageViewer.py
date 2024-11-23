@@ -36,8 +36,15 @@ def select_file_and_display_data():
     # Read the modality from the selected DICOM file
     ds = pydicom.read_file(file_path)
     modality = ds.Modality
-    window_width = ds.WindowWidth
-    window_center = ds.WindowCenter
+    try:
+        window_width = ds.WindowWidth
+    except:
+        window_width = [350]
+        #TODO: appropriately handle missing window width and center
+    try:
+        window_center = ds.WindowCenter
+    except:
+        window_center = [50]
 
     if file_path:  # If a file is selected
         # Get the directory of the selected file
