@@ -39,12 +39,11 @@ def select_file_and_display_data():
     try:
         window_width = ds.WindowWidth
     except:
-        window_width = [350]
-        #TODO: appropriately handle missing window width and center
+        window_width = None
     try:
         window_center = ds.WindowCenter
     except:
-        window_center = [50]
+        window_center = None
 
     if file_path:  # If a file is selected
         # Get the directory of the selected file
